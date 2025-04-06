@@ -1,79 +1,142 @@
 #include <iostream>
-#include <sstream>
+#include <thread>
+#include <chrono>
 #include <vector>
+#include <cstdlib>
+#include <fstream>
 
 using namespace std;
 
-double performCalculation(double a, double b, char op) {
-    switch (op) {
-    case '+': return a + b;
-    case '-': return a - b;
-    case '*': return a * b;
-    case '/':
-        if (b != 0) return a / b;
-        else {
-            cout << "error: division by zero!" << endl;
-            exit(1);
+
+string getRandomOrnament() {
+    vector<string> ornaments = { "\033[31m@", "\033[32m$", "\033[34m%", "\033[33m#" };
+    return ornaments[rand() % ornaments.size()];
+}
+
+
+void clearScreen() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
+
+vector<vector<string>> createTree(int levels, vector<pair<int, int>>& ornaments) {
+    vector<vector<string>> tree;
+    int totalRows = 0;
+    for (int level = 1; level <= levels; ++level) {
+        for (int row = 0; row < level + 1; ++row) {
+            int stars = 2 * row + 1;
+            int spaces = levels - row;
+
+            vector<string> currentRow;
+
+
+            for (int i = 0; i < spaces; ++i) {
+                currentRow.push_back(" ");
+            }
+
+
+            for (int i = 0; i < stars; ++i) {
+                if (rand() % 6 == 0) {
+                    currentRow.push_back(getRandomOrnament());
+                    ornaments.push_back({ totalRows, static_cast<int>(currentRow.size()) - 1 });
+                }
+                else {
+                    currentRow.push_back("\033[32m*");
+                }
+            }
+
+
+            for (int i = 0; i < spaces; ++i) {
+                currentRow.push_back(" ");
+            }
+
+            tree.push_back(currentRow);
+            ++totalRows;
         }
-    default:
-        cout << "invalid operation!" << endl;
-        exit(1);
+    }
+    int trunkHeight = 2;
+    for (int i = 0; i < trunkHeight; ++i) {
+        vector<string> trunk(levels, " ");
+        trunk.push_back("\033[33m||");
+        tree.push_back(trunk);
+    }
+
+    return tree;
+}
+
+
+void displayTree(const vector<vector<string>>& tree, const vector<pair<int, int>>& ornaments) {
+    clearScreen();
+
+    for (int i = 0; i < tree.size(); ++i) {
+        for (int j = 0; j < tree[i].size(); ++j) {
+            bool isOrnament = false;
+
+
+            for (auto& ornament : ornaments) {
+                if (ornament.first == i && ornament.second == j) {
+                    cout << getRandomOrnament();
+                    isOrnament = true;
+                    break;
+                }
+            }
+
+            if (!isOrnament) {
+                cout << tree[i][j];
+            }
+        }
+        cout << endl;
     }
 }
 
-void extractExpression(const string& expr, vector<double>& values, vector<char>& ops) {
-    stringstream ss(expr);
-    double val;
-    char op;
+// Функція для запису ялинки в файл
+void saveTreeToFile(const vector<vector<string>>& tree) {
+    ofstream file("christmas_tree.txt");
+    if (file.is_open()) {
+        for (const auto& row : tree) {
+            for (const auto& symbol : row) {
 
-    ss >> val;
-    values.push_back(val);
-
-    while (ss >> op) {
-        if (op != '+' && op != '-' && op != '*' && op != '/') {
-            cout << "error: invalid operation!" << endl;
-            exit(1);
+                if (symbol.find("\033") == string::npos) {
+                    file << symbol;
+                }
+                else {
+                    file << "*";
+                }
+            }
+            file << endl;
         }
-        ops.push_back(op);
-
-        ss >> val;
-        values.push_back(val);
+        file.close();
+        cout << "Sex'!" << endl;
+    }
+    else {
+        cerr << "Error" << endl;
     }
 }
 
 int main() {
-    string expr;
+    srand(time(0));
 
-    cout << "enter the expression: ";
-    cin >> expr;
+    // Отримуємо кількість рівнів ялинки від користувача
+    int levels;
+    cout << " Enter h ";
+    cin >> levels;
 
-    vector<double> values;
-    vector<char> ops;
+    vector<pair<int, int>> ornaments;  // Позиції для іграшок
+    vector<vector<string>> tree = createTree(levels, ornaments);  // Створення ялинки
 
-    extractExpression(expr, values, ops);
-
-    vector<double> calc_values;
-    vector<char> calc_ops;
-
-    calc_values.push_back(values[0]);
-
-    for (int i = 0; i < ops.size(); ++i) {
-        if (ops[i] == '*' || ops[i] == '/') {
-            double intermediate_result = performCalculation(calc_values.back(), values[i + 1], ops[i]);
-            calc_values.back() = intermediate_result;
-        }
-        else {
-            calc_values.push_back(values[i + 1]);
-            calc_ops.push_back(ops[i]);
-        }
+    // Оновлюємо кольори іграшок кожну секунду протягом 10 ітерацій
+    int iterations = 10;
+    while (iterations--) {
+        displayTree(tree, ornaments);
+        this_thread::sleep_for(chrono::seconds(1));  // Пауза на 1 секунду
     }
 
-    double final_result = calc_values[0];
-    for (int i = 0; i < calc_ops.size(); ++i) {
-        final_result = performCalculation(final_result, calc_values[i + 1], calc_ops[i]);
-    }
-
-    cout << "final result: " << final_result << endl;
+    // Записуємо ялинку в файл
+    saveTreeToFile(tree);
 
     return 0;
 }
